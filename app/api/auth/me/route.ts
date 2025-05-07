@@ -1,13 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { readFileSync, existsSync } from "fs"
-import { join } from "path"
 import { verify } from "jsonwebtoken"
+import { getUserById } from "@/lib/db"
 
 // Secret key for JWT
 const JWT_SECRET = process.env.JWT_SECRET || "soundboard-secret-key"
-
-// Path to users data file
-const USERS_FILE = join(process.cwd(), "data", "users.json")
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,29 +19,20 @@ export async function GET(request: NextRequest) {
     // Verify token
     const decoded = verify(token, JWT_SECRET) as { userId: string }
 
-    // Check if users file exists
-    if (!existsSync(USERS_FILE)) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 })
-    }
-
-    // Read users data
-    const usersData = readFileSync(USERS_FILE, "utf8")
-    const users = JSON.parse(usersData)
-
-    // Find user by ID
-    const user = users.find((u: any) => u.id === decoded.userId)
+    // Get user data
+    const user = await getUserById(decoded.userId)
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    // Return user data without password
-    const { password, ...userWithoutPassword } = user
+    // Return user data (without password)
+    const { password: _, ...userWithoutPassword } = user
 
     return NextResponse.json({
       user: userWithoutPassword,
     })
   } catch (error) {
-    console.error("Auth error:", error)
+    console.error("Get user error:", error)
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
 }

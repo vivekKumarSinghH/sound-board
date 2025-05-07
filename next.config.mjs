@@ -1,7 +1,8 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    serverComponentsExternalPackages: ["glob"],
+    serverExternalPackages: ['some-package']
+
   },
   eslint: {
     ignoreDuringBuilds: true,
