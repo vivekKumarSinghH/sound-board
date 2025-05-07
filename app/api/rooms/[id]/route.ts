@@ -1,15 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { readFileSync } from "fs"
-import { join } from "path"
 import { verify } from "jsonwebtoken"
+import { getRoomById } from "@/lib/db"
 
 // Secret key for JWT
 const JWT_SECRET = process.env.JWT_SECRET || "soundboard-secret-key"
 
-// Path to rooms data file
-const ROOMS_FILE = join(process.cwd(), "data", "rooms.json")
-
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Get authorization header
     const authHeader = request.headers.get("authorization")
@@ -23,17 +19,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Verify token
     verify(token, JWT_SECRET)
 
-    // Extract the room ID from params
+    // Get the room - properly await the params
     const { id: roomId } = await params
-
-    console.log(`Fetching room ID: ${roomId}`)
-
-    // Read rooms data
-    const roomsData = readFileSync(ROOMS_FILE, "utf8")
-    const rooms = JSON.parse(roomsData)
-
-    // Find the requested room
-    const room = rooms.find((room: any) => room.id === roomId)
+    const room = await getRoomById(roomId)
 
     if (!room) {
       return NextResponse.json({ message: "Room not found" }, { status: 404 })

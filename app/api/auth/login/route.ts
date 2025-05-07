@@ -1,13 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { readFileSync, existsSync } from "fs"
-import { join } from "path"
 import { sign } from "jsonwebtoken"
+import { getUserByEmail } from "@/lib/db"
 
 // Secret key for JWT
 const JWT_SECRET = process.env.JWT_SECRET || "soundboard-secret-key"
-
-// Path to users data file
-const USERS_FILE = join(process.cwd(), "data", "users.json")
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,17 +14,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Email and password are required" }, { status: 400 })
     }
 
-    // Check if users file exists
-    if (!existsSync(USERS_FILE)) {
-      return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
-    }
-
-    // Read users data
-    const usersData = readFileSync(USERS_FILE, "utf8")
-    const users = JSON.parse(usersData)
-
     // Find user by email
-    const user = users.find((u: any) => u.email === email)
+    const user = await getUserByEmail(email)
     if (!user) {
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
     }

@@ -1,14 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { readFileSync, writeFileSync, existsSync } from "fs"
-import { join } from "path"
 import { verify } from "jsonwebtoken"
+import { getRoomByCode, updateRoom } from "@/lib/db"
 
 // Secret key for JWT
 const JWT_SECRET = process.env.JWT_SECRET || "soundboard-secret-key"
-
-// Path to rooms data file
-const DATA_DIR = join(process.cwd(), "data")
-const ROOMS_FILE = join(DATA_DIR, "rooms.json")
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,16 +27,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Room code is required" }, { status: 400 })
     }
 
-    // Read rooms data
-    if (!existsSync(ROOMS_FILE)) {
-      return NextResponse.json({ message: "Room not found" }, { status: 404 })
-    }
-
-    const roomsData = readFileSync(ROOMS_FILE, "utf8")
-    const rooms = JSON.parse(roomsData)
-
     // Find room by code
-    const room = rooms.find((r: any) => r.code === roomCode.toUpperCase())
+    const room = await getRoomByCode(roomCode.toUpperCase())
     if (!room) {
       return NextResponse.json({ message: "Room not found" }, { status: 404 })
     }
@@ -64,9 +51,7 @@ export async function POST(request: NextRequest) {
     if (!room.participants.includes(decoded.userId)) {
       // Add user to participants
       room.participants.push(decoded.userId)
-
-      // Save updated rooms list
-      writeFileSync(ROOMS_FILE, JSON.stringify(rooms, null, 2), "utf8")
+      await updateRoom(room.id, { participants: room.participants })
     }
 
     // Don't send password in response

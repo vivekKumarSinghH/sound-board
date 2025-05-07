@@ -32,7 +32,9 @@
     "react-dom": "^18",
     "tailwind-merge": "^2.2.2",
     "tailwindcss-animate": "^1.0.7",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "@vercel/blob": "^0.22.1",
+    "mongodb": "^6.3.0"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.6",
