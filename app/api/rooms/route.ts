@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
 
     // Verify token
     const decoded = verify(token, JWT_SECRET) as { userId: string }
+    const userId = decoded.userId
 
     // Read rooms data
     const roomsData = readFileSync(ROOMS_FILE, "utf8")
@@ -59,19 +60,23 @@ export async function GET(request: NextRequest) {
 
     // Get query parameters
     const url = new URL(request.url)
-    const filter = url.searchParams.get("filter") || "all" // "all", "my", "public"
+    const filter = url.searchParams.get("filter") || "all" // "all", "my", "public", "joined"
 
     let filteredRooms = []
 
     if (filter === "my") {
       // Filter rooms where the user is the host
-      filteredRooms = rooms.filter((room: any) => room.hostId === decoded.userId)
-    } else if (filter === "public") {
-      // Filter public rooms where the user is not the host
-      filteredRooms = rooms.filter((room: any) => room.isPublic && room.hostId !== decoded.userId)
+      filteredRooms = rooms.filter((room: any) => room.hostId === userId)
+    } else if (filter === "joined") {
+      // Filter rooms where the user is a participant but not the host
+      filteredRooms = rooms.filter(
+        (room: any) => room.participants && room.participants.includes(userId) && room.hostId !== userId,
+      )
     } else {
-      // All rooms the user can access (host of or public)
-      filteredRooms = rooms.filter((room: any) => room.hostId === decoded.userId || room.isPublic)
+      // All rooms the user can access (host of or participant in)
+      filteredRooms = rooms.filter(
+        (room: any) => room.hostId === userId || (room.participants && room.participants.includes(userId)),
+      )
     }
 
     // Read users data to get host names
@@ -87,6 +92,8 @@ export async function GET(request: NextRequest) {
         // Don't send password in response
         hasPassword: !!room.password,
         password: undefined,
+        // Count unique participants
+        participantCount: room.participants ? new Set(room.participants).size : 1,
       }
     })
 
@@ -166,6 +173,7 @@ export async function POST(request: NextRequest) {
       room: {
         ...roomWithoutPassword,
         hasPassword: !!password,
+        participantCount: 1,
       },
     })
   } catch (error) {

@@ -6,8 +6,9 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PlayCircle, StopCircle, Volume2, VolumeX, Download, Headphones, Music, Trash2 } from "lucide-react"
+import { PlayCircle, StopCircle, Volume2, VolumeX, Download, Headphones, Music, Trash2, User } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
+import { Progress } from "@/components/ui/progress"
 
 export interface AudioLoop {
   id: string
@@ -35,12 +36,17 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
         solo: boolean
         playing: boolean
         audioBuffer?: AudioBuffer
+        duration: number
       }
     >
   >({})
   const [isPlaying, setIsPlaying] = useState(false)
   const [masterVolume, setMasterVolume] = useState(80)
   const [isExporting, setIsExporting] = useState(false)
+  const [playbackProgress, setPlaybackProgress] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [maxDuration, setMaxDuration] = useState(0)
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
   const audioContext = useRef<AudioContext | null>(null)
   const audioNodes = useRef<
@@ -53,7 +59,16 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
     >
   >({})
   const startTime = useRef<number>(0)
+  const animationFrameRef = useRef<number | null>(null)
   const { toast } = useToast()
+
+  // Format time in mm:ss format
+  const formatTime = (timeInSeconds: number) => {
+    if (!timeInSeconds || isNaN(timeInSeconds)) return "0:00"
+    const minutes = Math.floor(timeInSeconds / 60)
+    const seconds = Math.floor(timeInSeconds % 60)
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`
+  }
 
   // Initialize audio context and track states
   useEffect(() => {
@@ -71,6 +86,7 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
           solo: false,
           playing: false,
           audioBuffer: undefined,
+          duration: 0,
         }
       }
     })
@@ -84,6 +100,9 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
       if (audioContext.current) {
         stopAllTracks()
         audioContext.current.close()
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
       }
     }
   }, [loops])
@@ -114,6 +133,7 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
               [loop.id]: {
                 ...prev[loop.id],
                 audioBuffer,
+                duration: audioBuffer.duration,
               },
             }))
           } catch (error) {
@@ -125,6 +145,43 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
 
     loadAudioFiles()
   }, [loops, trackStates])
+
+  // Update max duration when track states change
+  useEffect(() => {
+    let newMaxDuration = 0
+    Object.values(trackStates).forEach((track) => {
+      if (track.duration > newMaxDuration) {
+        newMaxDuration = track.duration
+      }
+    })
+    setMaxDuration(newMaxDuration)
+  }, [trackStates])
+
+  // Handle playback progress animation
+  useEffect(() => {
+    if (isPlaying && maxDuration > 0) {
+      const updateProgress = () => {
+        const elapsed = (audioContext.current?.currentTime || 0) - startTime.current
+        const progress = Math.min(elapsed / maxDuration, 1)
+        setPlaybackProgress(progress * 100)
+        setCurrentTime(elapsed)
+
+        if (progress < 1) {
+          animationFrameRef.current = requestAnimationFrame(updateProgress)
+        } else {
+          // Loop playback
+          startTime.current = audioContext.current?.currentTime || 0
+        }
+      }
+
+      animationFrameRef.current = requestAnimationFrame(updateProgress)
+      return () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current)
+        }
+      }
+    }
+  }, [isPlaying, maxDuration])
 
   const playTrack = (loopId: string) => {
     if (!audioContext.current || !trackStates[loopId]?.audioBuffer) return
@@ -194,6 +251,8 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
     }
 
     startTime.current = audioContext.current.currentTime
+    setCurrentTime(0)
+    setPlaybackProgress(0)
 
     // Check if any tracks are soloed
     const hasSoloedTracks = Object.values(trackStates).some((track) => track.solo)
@@ -228,6 +287,12 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
 
     setTrackStates(updatedStates)
     setIsPlaying(false)
+    setPlaybackProgress(0)
+    setCurrentTime(0)
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+    }
   }
 
   const handleVolumeChange = (loopId: string, value: number[]) => {
@@ -308,6 +373,18 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
     }
   }
 
+  const deleteLoop = async (loopId: string) => {
+    if (!onDeleteLoop) return
+
+    setIsDeleting(loopId)
+
+    try {
+      await onDeleteLoop(loopId)
+    } finally {
+      setIsDeleting(null)
+    }
+  }
+
   const exportMixdown = async () => {
     if (!audioContext.current) return
 
@@ -338,17 +415,26 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
         }
       })
 
+      console.log("Max duration for mixdown:", maxDuration)
+
       // Create offline context with the max duration
-      const offlineCtx = new OfflineAudioContext(
-        2, // stereo
-        audioContext.current.sampleRate * maxDuration,
-        audioContext.current.sampleRate,
-      )
+      const sampleRate = audioContext.current.sampleRate
+      const totalSamples = Math.ceil(sampleRate * maxDuration)
+
+      // Create a new offline context for rendering
+      const offlineCtx = new OfflineAudioContext({
+        numberOfChannels: 2,
+        length: totalSamples,
+        sampleRate: sampleRate,
+      })
 
       // Add all tracks to the offline context
-      tracksToMix.forEach((loop) => {
+      const sources = tracksToMix.map((loop) => {
         const source = offlineCtx.createBufferSource()
         source.buffer = trackStates[loop.id].audioBuffer
+
+        // Important: Don't loop the source during export
+        source.loop = false
 
         const gain = offlineCtx.createGain()
         gain.gain.value = (trackStates[loop.id].volume / 100) * (masterVolume / 100)
@@ -356,11 +442,16 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
         source.connect(gain)
         gain.connect(offlineCtx.destination)
 
-        source.start(0)
+        return source
       })
 
+      // Start all sources at time 0
+      sources.forEach((source) => source.start(0))
+
       // Render the audio
+      console.log("Starting render with length:", totalSamples, "samples")
       const renderedBuffer = await offlineCtx.startRendering()
+      console.log("Rendered buffer length:", renderedBuffer.length, "samples", renderedBuffer.duration, "seconds")
 
       // Convert to WAV
       const wavBlob = await audioBufferToWav(renderedBuffer)
@@ -374,9 +465,31 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
       link.click()
       document.body.removeChild(link)
 
+      // Clean up the URL object
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+
+      // Record the export in the database
+      try {
+        await fetch("/api/exports", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            roomId: loops[0]?.roomId,
+            loopCount: tracksToMix.length,
+            duration: maxDuration,
+          }),
+        })
+      } catch (error) {
+        console.error("Failed to record export:", error)
+        // Continue even if recording the export fails
+      }
+
       toast({
         title: "Mixdown complete",
-        description: "Your audio file has been downloaded.",
+        description: `Your audio file has been downloaded.`,
       })
     } catch (error) {
       console.error("Export error:", error)
@@ -480,8 +593,17 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
               disabled={isExporting || loops.length === 0}
               className="border-purple-200 dark:border-purple-800"
             >
-              <Download className="mr-2 h-4 w-4" />
-              Export Mixdown
+              {isExporting ? (
+                <>
+                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Mixdown
+                </>
+              )}
             </Button>
           </div>
         </CardTitle>
@@ -499,8 +621,10 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
           <>
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <Label htmlFor="master-volume">Master Volume</Label>
-                <span className="text-sm text-muted-foreground">{masterVolume}%</span>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="master-volume">Master Volume</Label>
+                  <span className="text-sm text-muted-foreground">{masterVolume}%</span>
+                </div>
               </div>
               <Slider
                 id="master-volume"
@@ -509,16 +633,26 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
                 max={100}
                 step={1}
                 onValueChange={handleMasterVolumeChange}
-                className="w-full"
+                className="w-full mb-2"
               />
+              <Progress value={playbackProgress} className="h-2" />
             </div>
 
             <div className="space-y-4">
               {loops.map((loop) => {
-                const track = trackStates[loop.id] || { volume: 80, muted: false, solo: false, playing: false }
+                const track = trackStates[loop.id] || {
+                  volume: 80,
+                  muted: false,
+                  solo: false,
+                  playing: false,
+                  duration: 0,
+                }
 
                 return (
-                  <div key={loop.id} className="flex flex-col border rounded-md p-3">
+                  <div
+                    key={loop.id}
+                    className="flex flex-col border rounded-md p-3 bg-card hover:border-purple-200 dark:hover:border-purple-800 transition-all duration-200"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Button
@@ -536,7 +670,10 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
                         </Button>
                         <div>
                           <div className="font-medium">{loop.name}</div>
-                          <div className="text-xs text-muted-foreground">By {loop.userName}</div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <User className="h-3.5 w-3.5" />
+                            <span>Created by {loop.userName || "Unknown User"}</span>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -565,9 +702,14 @@ export function TrackMixer({ loops, onDeleteLoop }: TrackMixerProps) {
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0 text-red-500 hover:text-red-600"
-                            onClick={() => onDeleteLoop(loop.id)}
+                            onClick={() => deleteLoop(loop.id)}
+                            disabled={isDeleting === loop.id}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            {isDeleting === loop.id ? (
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-500 border-t-transparent" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
                           </Button>
                         )}
                       </div>

@@ -17,6 +17,7 @@ import {
   MoonIcon,
   SunIcon,
   Users,
+  User,
 } from "lucide-react";
 
 export function AppHeader() {
@@ -36,11 +37,6 @@ export function AppHeader() {
       name: "My Jam Rooms",
       path: "/dashboard",
       icon: <MusicIcon className="h-5 w-5" />,
-    },
-    {
-      name: "Explore",
-      path: "/explore",
-      icon: <CompassIcon className="h-5 w-5" />,
     },
   ];
 
@@ -221,9 +217,13 @@ export function AppHeader() {
 
           {user ? (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground hidden md:inline-block">
-                {user.name}
-              </span>
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+              >
+                <User className="h-4 w-4" />
+                <span className="hidden md:inline-block">{user.name}</span>
+              </Link>
               <Button
                 variant="ghost"
                 size="sm"

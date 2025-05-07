@@ -31,27 +31,42 @@ export default function Home() {
                       Start Jamming
                     </Button>
                   </Link>
-                  <Link href="/explore">
+                  <Link href="#how-it-works">
                     <Button size="lg" variant="outline">
-                      Explore Public Jams
+                      Learn More
                     </Button>
                   </Link>
                 </div>
               </div>
-              <div className="relative mx-auto aspect-video overflow-hidden rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 p-1 shadow-2xl sm:w-full lg:order-last">
-                <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-                <img
-                  src="/placeholder.svg?key=136t8"
-                  alt="Musicians collaborating"
-                  width={550}
-                  height={550}
-                  className="mx-auto aspect-video overflow-hidden rounded-lg object-cover sm:w-full"
-                />
+              <div className="relative mx-auto overflow-hidden rounded-xl bg-gradient-to-br from-purple-600 to-pink-500 p-8 shadow-2xl sm:w-full lg:order-last">
+                <div className="text-center">
+                  <h2 className="mb-4 text-3xl font-bold text-white">
+                    Make Music Together
+                  </h2>
+                  <p className="mb-6 text-lg text-white/90">
+                    Record, collaborate, and mix tracks in real-time with
+                    musicians from around the world.
+                  </p>
+                  <div className="flex justify-center space-x-2">
+                    <div className="rounded-full bg-white/20 px-4 py-1 text-sm font-medium text-white">
+                      Real-time Collaboration
+                    </div>
+                    <div className="rounded-full bg-white/20 px-4 py-1 text-sm font-medium text-white">
+                      Browser-based
+                    </div>
+                    <div className="rounded-full bg-white/20 px-4 py-1 text-sm font-medium text-white">
+                      High Quality Audio
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-purple-50 dark:bg-slate-900">
+        <section
+          id="how-it-works"
+          className="w-full py-12 md:py-24 lg:py-32 bg-purple-50 dark:bg-slate-900"
+        >
           <div className="container px-4 md:px-6">
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">

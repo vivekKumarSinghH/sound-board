@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { usePathname } from "next/navigation"
-import Link from "next/link"
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import {
   Sidebar,
   SidebarContent,
@@ -14,35 +14,43 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
-} from "@/components/ui/sidebar"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useAuth } from "@/hooks/use-auth"
-import { MusicIcon, HomeIcon, PlusIcon, CompassIcon, LogOutIcon, MoonIcon, SunIcon } from "lucide-react"
-import { useTheme } from "next-themes"
+} from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  MusicIcon,
+  HomeIcon,
+  PlusIcon,
+  LogOutIcon,
+  MoonIcon,
+  SunIcon,
+  User,
+} from "lucide-react";
+import { useTheme } from "next-themes";
 
 export function AppSidebar({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const { user, logout } = useAuth()
-  const { theme, setTheme } = useTheme()
+  const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   const isActive = (path: string) => {
-    if (path === "/" && pathname === "/") return true
-    if (path !== "/" && pathname.startsWith(path)) return true
-    return false
-  }
+    if (path === "/" && pathname === "/") return true;
+    if (path !== "/" && pathname.startsWith(path)) return true;
+    return false;
+  };
 
   const getInitials = (name: string) => {
     return name
       .split(" ")
       .map((n) => n[0])
       .join("")
-      .toUpperCase()
-  }
+      .toUpperCase();
+  };
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark")
-  }
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
 
   return (
     <SidebarProvider>
@@ -75,14 +83,6 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/explore")}>
-                  <Link href="/explore">
-                    <CompassIcon className="h-5 w-5" />
-                    <span>Explore</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <Link href="/dashboard">
                     <PlusIcon className="h-5 w-5" />
@@ -90,10 +90,23 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/profile")}>
+                  <Link href="/profile">
+                    <User className="h-5 w-5" />
+                    <span>Profile</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-4 space-y-4">
-            <Button variant="outline" size="sm" className="w-full justify-start" onClick={toggleTheme}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={toggleTheme}
+            >
               {theme === "dark" ? (
                 <>
                   <SunIcon className="h-4 w-4 mr-2" />
@@ -111,22 +124,35 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 p-2 rounded-md border">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={`https://avatar.vercel.sh/${user.id}`} alt={user.name} />
+                    <AvatarImage
+                      src={`https://avatar.vercel.sh/${user.id}`}
+                      alt={user.name}
+                    />
                     <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col">
                     <span className="text-sm font-medium">{user.name}</span>
-                    <span className="text-xs text-muted-foreground">{user.email}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {user.email}
+                    </span>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="w-full justify-start" onClick={logout}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={logout}
+                >
                   <LogOutIcon className="h-4 w-4 mr-2" />
                   <span>Logout</span>
                 </Button>
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                <Button asChild className="w-full bg-purple-600 hover:bg-purple-700">
+                <Button
+                  asChild
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                >
                   <Link href="/login">Login</Link>
                 </Button>
                 <Button asChild variant="outline" className="w-full">
@@ -142,7 +168,6 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
             <div className="ml-4 font-medium">
               {pathname === "/" && "Home"}
               {pathname === "/dashboard" && "My Jam Rooms"}
-              {pathname === "/explore" && "Explore Public Jams"}
               {pathname.startsWith("/jam-room/") && "Jam Room"}
               {pathname === "/login" && "Login"}
               {pathname === "/signup" && "Sign Up"}
@@ -152,5 +177,5 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     </SidebarProvider>
-  )
+  );
 }

@@ -32,8 +32,16 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { MusicIcon, PlusIcon, Loader2, Users, Lock, Globe } from "lucide-react";
+import {
+  MusicIcon,
+  PlusIcon,
+  Loader2,
+  Users,
+  Lock,
+  UserPlus,
+} from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { Badge } from "@/components/ui/badge";
 
 // Types for our app
 interface JamRoom {
@@ -47,11 +55,12 @@ interface JamRoom {
   code: string;
   createdAt: string;
   hasPassword: boolean;
+  participantCount: number;
 }
 
 export default function DashboardPage() {
   const [myRooms, setMyRooms] = useState<JamRoom[]>([]);
-  const [publicRooms, setPublicRooms] = useState<JamRoom[]>([]);
+  const [joinedRooms, setJoinedRooms] = useState<JamRoom[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
@@ -75,11 +84,12 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const { user, isLoading: isAuthLoading } = useAuth();
 
-  // Check URL parameters for dialog control
+  // Check URL parameters for dialog control and tab selection
   useEffect(() => {
     if (searchParams) {
       const create = searchParams.get("create");
       const join = searchParams.get("join");
+      const tab = searchParams.get("tab");
 
       if (create === "true") {
         setIsCreateDialogOpen(true);
@@ -87,6 +97,10 @@ export default function DashboardPage() {
 
       if (join === "true") {
         setIsJoinDialogOpen(true);
+      }
+
+      if (tab === "joined-rooms") {
+        setActiveTab("joined-rooms");
       }
     }
   }, [searchParams]);
@@ -106,7 +120,7 @@ export default function DashboardPage() {
     try {
       setIsLoading(true);
 
-      // Fetch my rooms
+      // Fetch my rooms (rooms I host)
       const myRoomsResponse = await fetch("/api/rooms?filter=my", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -120,19 +134,27 @@ export default function DashboardPage() {
       const myRoomsData = await myRoomsResponse.json();
       setMyRooms(myRoomsData.rooms);
 
-      // Fetch public rooms
-      const publicRoomsResponse = await fetch("/api/rooms?filter=public", {
+      // Fetch joined rooms (rooms I'm a participant in but don't host)
+      const joinedRoomsResponse = await fetch("/api/rooms?filter=joined", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
 
-      if (!publicRoomsResponse.ok) {
-        throw new Error("Failed to fetch public rooms");
-      }
+      if (joinedRoomsResponse.ok) {
+        const joinedRoomsData = await joinedRoomsResponse.json();
 
-      const publicRoomsData = await publicRoomsResponse.json();
-      setPublicRooms(publicRoomsData.rooms);
+        // Filter out rooms that the user has created to avoid duplication
+        // This ensures joined rooms only shows rooms the user has joined but not created
+        if (user) {
+          const filteredJoinedRooms = joinedRoomsData.rooms.filter(
+            (joinedRoom: JamRoom) => joinedRoom.hostId !== user.id
+          );
+          setJoinedRooms(filteredJoinedRooms);
+        } else {
+          setJoinedRooms(joinedRoomsData.rooms);
+        }
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -181,11 +203,11 @@ export default function DashboardPage() {
         password: "",
       });
 
-      // Clear URL parameters
-      router.push("/dashboard");
-
-      // Navigate to the new room
-      router.push(`/jam-room/${data.room.id}`);
+      // Clear URL parameters and navigate to the new room
+      // Use setTimeout to ensure state updates complete before navigation
+      setTimeout(() => {
+        router.push(`/jam-room/${data.room.id}`);
+      }, 100);
     } catch (error) {
       toast({
         title: "Error",
@@ -233,7 +255,7 @@ export default function DashboardPage() {
       });
 
       // Clear URL parameters
-      router.push("/dashboard");
+      // router.push("/dashboard");
 
       // Navigate to the room
       router.push(`/jam-room/${data.room.id}`);
@@ -277,6 +299,22 @@ export default function DashboardPage() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Jam Rooms</h1>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/dashboard?join=true")}
+              className="border-purple-200 dark:border-purple-800"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Join Room
+            </Button>
+            <Button
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={() => router.push("/dashboard?create=true")}
+            >
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Create Room
+            </Button>
+
             <Dialog
               open={isJoinDialogOpen}
               onOpenChange={(open) => {
@@ -491,7 +529,7 @@ export default function DashboardPage() {
         >
           <TabsList className="mb-6">
             <TabsTrigger value="my-rooms">My Rooms</TabsTrigger>
-            <TabsTrigger value="public-rooms">Public Rooms</TabsTrigger>
+            <TabsTrigger value="joined-rooms">Joined Rooms</TabsTrigger>
           </TabsList>
 
           <TabsContent value="my-rooms">
@@ -533,10 +571,24 @@ export default function DashboardPage() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground">
-                          Room Code:{" "}
-                          <span className="font-mono">{room.code}</span>
-                        </p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm text-muted-foreground">
+                            Room Code:{" "}
+                            <span className="font-mono">{room.code}</span>
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className="flex items-center gap-1 border-purple-200 dark:border-purple-800"
+                          >
+                            <Users className="h-3 w-3 text-purple-600" />
+                            <span>
+                              {room.participantCount}{" "}
+                              {room.participantCount === 1
+                                ? "Jammer"
+                                : "Jammers"}
+                            </span>
+                          </Badge>
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           Created:{" "}
                           {new Date(room.createdAt).toLocaleDateString()}
@@ -554,53 +606,62 @@ export default function DashboardPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="public-rooms">
-            {publicRooms.length === 0 ? (
+          <TabsContent value="joined-rooms">
+            {joinedRooms.length === 0 ? (
               <Card className="w-full">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <div className="rounded-full bg-purple-100 p-3 mb-4 dark:bg-purple-900/20">
-                    <Globe className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                    <UserPlus className="h-8 w-8 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <h3 className="text-xl font-medium mb-2">
-                    No Public Rooms Available
-                  </h3>
+                  <h3 className="text-xl font-medium mb-2">No Joined Rooms</h3>
                   <p className="text-muted-foreground text-center max-w-md mb-6">
-                    There are no public jam rooms available at the moment.
-                    Create your own or join one with a room code.
+                    You haven't joined any rooms yet. Join a room with a room
+                    code.
                   </p>
-                  <div className="flex gap-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => router.push("/dashboard?join=true")}
-                    >
-                      <Users className="mr-2 h-4 w-4" />
-                      Join with Code
-                    </Button>
-                    <Button
-                      className="bg-purple-600 hover:bg-purple-700 transition-all duration-200"
-                      onClick={() => router.push("/dashboard?create=true")}
-                    >
-                      <PlusIcon className="mr-2 h-4 w-4" />
-                      Create Room
-                    </Button>
-                  </div>
+                  <Button
+                    className="bg-purple-600 hover:bg-purple-700 transition-all duration-200"
+                    onClick={() => router.push("/dashboard?join=true")}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Join with Code
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {publicRooms.map((room) => (
+                {joinedRooms.map((room) => (
                   <Link href={`/jam-room/${room.id}`} key={room.id}>
                     <Card className="h-full overflow-hidden hover:shadow-md transition-shadow border-border/50 hover:border-purple-200 dark:hover:border-purple-800">
                       <CardHeader className="pb-2">
-                        <CardTitle>{room.title}</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                          {room.title}
+                          {!room.isPublic && (
+                            <Lock className="h-4 w-4 text-amber-500" />
+                          )}
+                        </CardTitle>
                         <CardDescription>
-                          Public • {room.bpm} BPM • Key: {room.keySignature}
+                          {room.isPublic ? "Public" : "Private"} • {room.bpm}{" "}
+                          BPM • Key: {room.keySignature}
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground">
-                          Host: {room.hostName}
-                        </p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm text-muted-foreground">
+                            Host: {room.hostName}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className="flex items-center gap-1 border-purple-200 dark:border-purple-800"
+                          >
+                            <Users className="h-3 w-3 text-purple-600" />
+                            <span>
+                              {room.participantCount}{" "}
+                              {room.participantCount === 1
+                                ? "Jammer"
+                                : "Jammers"}
+                            </span>
+                          </Badge>
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           Created:{" "}
                           {new Date(room.createdAt).toLocaleDateString()}
@@ -608,7 +669,7 @@ export default function DashboardPage() {
                       </CardContent>
                       <CardFooter>
                         <Button className="w-full bg-purple-600 hover:bg-purple-700 transition-all duration-200">
-                          Join Jam Room
+                          Enter Jam Room
                         </Button>
                       </CardFooter>
                     </Card>

@@ -21,9 +21,18 @@ export function AudioWaveform({
   const [waveformData, setWaveformData] = useState<number[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [progress, setProgress] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
   const animationRef = useRef<number>()
   const startTimeRef = useRef<number>(0)
   const durationRef = useRef<number>(0)
+
+  // Format time in mm:ss format
+  const formatTime = (timeInSeconds: number) => {
+    const minutes = Math.floor(timeInSeconds / 60)
+    const seconds = Math.floor(timeInSeconds % 60)
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`
+  }
 
   // Load and process audio data
   useEffect(() => {
@@ -49,6 +58,7 @@ export function AudioWaveform({
         // Decode audio data
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
         durationRef.current = audioBuffer.duration
+        setDuration(audioBuffer.duration)
 
         // Get audio data from the first channel
         const channelData = audioBuffer.getChannelData(0)
@@ -91,6 +101,7 @@ export function AudioWaveform({
         const elapsed = (Date.now() - startTimeRef.current) / 1000
         const newProgress = Math.min(elapsed / durationRef.current, 1)
         setProgress(newProgress)
+        setCurrentTime(elapsed)
 
         if (newProgress < 1) {
           animationRef.current = requestAnimationFrame(animate)
@@ -106,6 +117,7 @@ export function AudioWaveform({
     } else {
       if (!playing) {
         setProgress(0)
+        setCurrentTime(0)
       }
     }
   }, [playing, progress])
@@ -168,7 +180,7 @@ export function AudioWaveform({
 
   if (isLoading) {
     return (
-      <div className="h-12 bg-purple-50 dark:bg-purple-900/10 rounded-md overflow-hidden animate-pulse">
+      <div className="h-16 bg-purple-50 dark:bg-purple-900/10 rounded-md overflow-hidden animate-pulse">
         <div className="h-full w-full flex items-center justify-center">
           <div className="text-xs text-muted-foreground">Loading waveform...</div>
         </div>
@@ -177,8 +189,14 @@ export function AudioWaveform({
   }
 
   return (
-    <div className="h-12 bg-purple-50 dark:bg-purple-900/10 rounded-md overflow-hidden">
-      <canvas ref={canvasRef} width={300} height={height} className="w-full h-full" />
+    <div className="space-y-1">
+      <div className="h-12 bg-purple-50 dark:bg-purple-900/10 rounded-md overflow-hidden">
+        <canvas ref={canvasRef} width={300} height={height} className="w-full h-full" />
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground px-1">
+        <span>{playing ? formatTime(currentTime) : "0:00"}</span>
+        <span>{formatTime(duration)}</span>
+      </div>
     </div>
   )
 }
