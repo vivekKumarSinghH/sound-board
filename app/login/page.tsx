@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { MusicIcon, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -26,24 +27,36 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const { user, isLoading: authLoading, login } = useAuth();
+
+  useEffect(() => {
+    if (user && !authLoading) {
+      router.push("/dashboard");
+    }
+  }, [user, authLoading, router]);
+
+  if (authLoading) {
+    return (
+      <div className="container flex min-h-screen w-screen flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      // Use the login function from useAuth instead of implementing our own fetch
+      await login(email, password);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Login failed");
-      }
+      // The login function in useAuth will handle:
+      // 1. Storing the token
+      // 2. Fetching user data
+      // 3. Setting the user state
+      // 4. Redirecting to dashboard
 
       toast({
         title: "Login successful",
@@ -51,7 +64,6 @@ export default function LoginPage() {
       });
 
       // Store the token in localStorage
-      localStorage.setItem("token", data.token);
 
       router.push("/dashboard");
     } catch (error) {
