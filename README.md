@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SoundBoard - Collaborative Jam Session Recorder
 
-## Getting Started
+SoundBoard is a web application that allows musicians to create jam rooms, record audio loops, and collaborate in real-time.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Jam Room Management**: Create rooms with custom BPM, key signature, and invite collaborators with a unique room code.
+- **Loop Recording**: Record high-quality audio loops up to 30 seconds directly in your browser with waveform visualization.
+- **Track Mixer**: Mix and match loops with volume controls, mute/solo functionality, and effects to create the perfect sound.
+- **Export Mixdown**: Combine all your loops into a single high-quality audio file that you can download and share.
+- **User Authentication**: Secure login and signup system with JWT authentication.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deployment Instructions
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Deploy to Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The easiest way to deploy SoundBoard is using Vercel:
 
-## Learn More
+1. Fork this repository to your GitHub account
+2. Create a new project on [Vercel](https://vercel.com)
+3. Import your forked repository
+4. Add the following environment variable:
+   - `JWT_SECRET`: A secure random string for JWT token generation
+5. Deploy the project
 
-To learn more about Next.js, take a look at the following resources:
+### Environment Variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `JWT_SECRET`: Required for JWT token generation and verification
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Data Storage
 
-## Deploy on Vercel
+SoundBoard uses file-based storage for simplicity:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- User data is stored in `data/users.json`
+- Room data is stored in `data/rooms.json`
+- Audio loops are stored in `data/loops/[roomId]/[loopId].wav`
+- Loop metadata is stored in `data/loops/[roomId].json`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Technologies Used
+
+- Next.js 14 (App Router)
+- React 18
+- TypeScript
+- Tailwind CSS
+- shadcn/ui components
+- Web Audio API
+- JWT for authentication
+
+## License
+
+MIT
+\`\`\`
+
+Finally, let's create a simple deployment script to help with Vercel deployment:
